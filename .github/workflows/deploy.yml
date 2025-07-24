@@ -1,0 +1,101 @@
+name: Deploy Laravel to AWS Ubuntu
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to AWS
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}
+          REMOTE_USER: ${{ secrets.USERNAME }}
+          SOURCE: "./"
+          TARGET: ${{ secrets.TARGET_DIR }}
+          EXCLUDE: "/dist/, /node_modules/, /.git/, /.github/"
+
+      - name: Install dependencies and build assets
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ${{ secrets.TARGET_DIR }}
+            echo "Installing Node.js dependencies and building assets..."
+            
+            # Ensure critical directories have correct permissions
+            npm install --no-audit --no-fund
+            npm run build
+            echo "✅ Assets built successfully"
+      - name: Change ENV to Production
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ${{ secrets.TARGET_DIR }}
+            echo "🔄 Changing environment to production..."
+            
+            # Change .env file to production
+            cp .env.production .env
+            
+            echo "✅ Environment set to production"
+      - name: Install Composer dependencies
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ${{ secrets.TARGET_DIR }}
+            echo "📦 Installing Composer dependencies..."
+
+
+            # Install dependencies
+            composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+            
+            echo "✅ Composer dependencies installed"
+
+      - name: Run database migrations
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ${{ secrets.TARGET_DIR }}
+            echo "🗄 Running database migrations..."
+            
+            # Run migrations
+            php artisan migrate --force
+            
+            echo "✅ Database migrations completed"
+
+      - name: Final permissions check
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ${{ secrets.TARGET_DIR }}
+            echo "🔍 Final permissions verification..."
+            
+            # Ensure critical directories have correct permissions
+
+            sudo chown -R 755 /var/www/SERSOFT/
+            sudo chown -R www-data:ubuntu /var/www/SERSOFT/
+            
+            echo "✅ Final permissions verified"
+            echo "🚀 Deployment completed successfully!"
