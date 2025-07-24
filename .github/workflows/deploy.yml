@@ -94,8 +94,8 @@ jobs:
             
             # Ensure critical directories have correct permissions
 
-            sudo chown -R 755 /var/www/SERSOFT/
-            sudo chown -R www-data:ubuntu /var/www/SERSOFT/
+            sudo chown -R 755 /var/www/html/
+            sudo chown -R www-data:ubuntu /var/www/html/
             
             echo "✅ Final permissions verified"
             echo "🚀 Deployment completed successfully!"
